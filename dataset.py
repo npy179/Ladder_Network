@@ -22,7 +22,7 @@ class Dataset(object):
             self._batch_index = 0
 
         data_batch = self.dataset[start:end, :-1]
-        label_batch = self.dataset[start:end, -1]
+        label_batch = self.dataset[start:end, [-1]]
         return data_batch, label_batch
 
 class SemiDataset(Dataset):
@@ -35,7 +35,7 @@ class SemiDataset(Dataset):
         ulabel_data_batch = self.ulabel_data.next_batch()
 
         return label_data_batch, label_label_batch, ulabel_data_batch
-        
+
 def main():
 
     label_dataset = np.load("label_dataset_sample.npy")
@@ -43,8 +43,9 @@ def main():
     start = time.time()
     ds = SemiDataset(label_dataset, unlabel_dataset, 2)
     run = 0
-    while run < 1000000:
+    while run < 10:
         ldb, llb, udb  = ds.next_batch()
+        print(llb.shape)
         run += 1
 
     time_used = time.time() - start

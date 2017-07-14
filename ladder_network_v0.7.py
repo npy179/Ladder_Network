@@ -2,12 +2,12 @@
 from __future__ import print_function
 import tensorflow as tf
 import numpy as np
-import dataset
+from dataset import Dataset, SemiDataset
 
 
 def generate_simulation_dataset():
     seqs = np.random.rand(50, 2195)
-    lbls = np.random.randint(2, size=(50, 2))
+    lbls = np.random.randint(2, size=(50, 1))
     np.save("sequences", seqs)
     np.save("labels", lbls)
 
@@ -79,14 +79,23 @@ def decoder(h_tilde_L, L, V, z_tildes, A, B):
 
 
 def main():
-    generate_simulation_dataset()
-    sequences = np.load("sequences.npy")
-    labels = np.load("labels.npy")
+
+    labeled_dataset = np.load("label_dataset_sample.npy")
+    ulabeled_dataset = np.load("unlabel_dataset_sample.npy")
+
+    batch_size = 3
+    n_epochs = 10
+
+    num_label_example, _ = labeled_dataset.shape
+    num_iter = (num_label_example * n_epochs) / batch_size
+
+    ld = Dataset(labeled_dataset, batch_size)
+
     # tf Graph input
     X = tf.placeholder(tf.float32, shape=(None, 2195))
-    y_ = tf.placeholder(tf.float32, shape=(None, 2))
+    y_ = tf.placeholder(tf.float32, shape=(None, 1))
     # define weight for corrupted encoder,  clean encoder
-    layer_units = [2195, 500, 200, 200, 2]
+    layer_units = [2195, 500, 200, 200, 1]
     lambda_weight= [1000, 10, 0.1, 0.1, 0.1]
 
     # define W, V, scaling Gammas, Bias Betas
@@ -129,8 +138,9 @@ def main():
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
         sess.run(init)
-        for i in xrange(10000):
-            _, Cost_o =  sess.run([optimazer, Cost], feed_dict={X: sequences, y_:labels})
+        for i in xrange(num_iter):
+            sequences_batch, labels_batch = ld.next_batch()
+            _, Cost_o =  sess.run([optimazer, Cost], feed_dict={X: sequences_batch, y_:labels_batch})
             print(Cost_o)
 
 if __name__=="__main__":

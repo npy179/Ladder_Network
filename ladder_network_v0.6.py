@@ -5,7 +5,7 @@ import numpy as np
 
 def generate_simulation_dataset():
     seqs = np.random.rand(50, 1000)
-    lbls = np.random.randint(2, size=(50, 10))
+    lbls = np.random.randint(2, size=(50, 1))
     np.save("sequences", seqs)
     np.save("labels", lbls)
 
@@ -80,6 +80,7 @@ def main():
     generate_simulation_dataset()
     sequences = np.load("sequences.npy")
     labels = np.load("labels.npy")
+    print(labels.shape)
     # tf Graph input
     X = tf.placeholder(tf.float32, shape=(None, 1000))
     y_ = tf.placeholder(tf.float32, shape=(None, 10))
@@ -127,7 +128,7 @@ def main():
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
         sess.run(init)
-        for i in xrange(10000):
+        for i in xrange(1):
             _, Cost_o =  sess.run([optimazer, Cost], feed_dict={X: sequences, y_:labels})
             print(Cost_o)
 
