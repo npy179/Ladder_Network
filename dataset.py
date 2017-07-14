@@ -1,10 +1,11 @@
 #!/usr/bin/python
 from __future__ import print_function
 import numpy as np
+import time
 
 class Dataset(object):
     def __init__(self, dataset, batch_size):
-        self.dataset = dataset #np.load(dataset, mmap_mode="r")
+        self.dataset = dataset
         self.batch_size = batch_size
         self._batch_index = 0
 
@@ -20,42 +21,35 @@ class Dataset(object):
             end = _num_rows
             self._batch_index = 0
 
-        batch = self.dataset[start:end, :]
-        return batch
+        data_batch = self.dataset[start:end, :-1]
+        label_batch = self.dataset[start:end, -1]
+        return data_batch, label_batch
 
-class SemiDataset(object):
-    def __init__(self, label_data, label_label, ulabel_data, batch_size):
+class SemiDataset(Dataset):
+    def __init__(self, label_data, ulabel_data, batch_size):
         self.label_data = Dataset(label_data, batch_size)
-        self.label_label = Dataset(label_label, batch_size)
         self.ulabel_data = Dataset(ulabel_data, batch_size)
 
     def next_batch(self):
-        label_data_batch = self.label_data.next_batch()
-        label_label_batch = self.label_label.next_batch()
+        label_data_batch, label_label_batch  = self.label_data.next_batch()
         ulabel_data_batch = self.ulabel_data.next_batch()
-        semi_data_batch = np.vstack((label_data_batch, ulabel_data_batch))
 
-        return semi_data_batch, label_label_batch
-
+        return label_data_batch, label_label_batch, ulabel_data_batch
+        
 def main():
-    sample_dataset_0 = np.arange(1251 * 2).reshape(1251, 2)
-    np.save('sample_dataset_0', sample_dataset_0)
 
-    sample_dataset_1 = np.arange(251 * 2).reshape(251, 2)
-    np.save('sample_dataset_1', sample_dataset_1)
+    label_dataset = np.load("label_dataset_sample.npy")
+    unlabel_dataset = np.load("unlabel_dataset_sample.npy")
+    start = time.time()
+    ds = SemiDataset(label_dataset, unlabel_dataset, 2)
+    run = 0
+    while run < 1000000:
+        ldb, llb, udb  = ds.next_batch()
+        run += 1
 
-    sample_dataset_2 = np.arange(251 * 2).reshape(251, 2)
-    np.save('sample_dataset_2', sample_dataset_2)
+    time_used = time.time() - start
 
-    sample_dataset_0 = np.load("sample_dataset_0.npy", mmap_mode="r")
-    sample_dataset_1 = np.load("sample_dataset_1.npy", mmap_mode="r")
-    sample_dataset_2 = np.load("sample_dataset_2.npy", mmap_mode="r")
-
-    ds = SemiDataset(sample_dataset_1, sample_dataset_2, sample_dataset_0, 2)
-    while 1:
-        ds1, lb1 = ds.next_batch()
-        print(ds1)
-
+    print("time is : ", time_used)
 
 if __name__=="__main__":
     main()
