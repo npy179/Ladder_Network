@@ -2,15 +2,7 @@
 from __future__ import print_function
 import tensorflow as tf
 import numpy as np
-from dataset import Dataset, SemiDataset
-
-
-def generate_simulation_dataset():
-    seqs = np.random.rand(50, 2195)
-    lbls = np.random.randint(2, size=(50, 1))
-    np.save("sequences", seqs)
-    np.save("labels", lbls)
-
+from dataset import Label_Dataset, SemiDataset
 
 def gaussian_noise_layer(x, stddev):
     x_noise = tf.add(x, tf.random_normal(shape=tf.shape(x), stddev=stddev))
@@ -29,8 +21,7 @@ def activation(x, activation_type='relu'):
         activation_out = tf.nn.sigmoid(x)
     return activation_out
 
-
-def encoder(x, W, L, Gammas, Betas, noise=0.0):
+def encoder(x, W, L, Gammas, Betas, training=True, noise=0.0):
     h_tilde = {}
     z_tilde = {}
     batch_mean = {}
@@ -51,6 +42,7 @@ def encoder(x, W, L, Gammas, Betas, noise=0.0):
             h_tilde[l] = activation(tf.add(z_tilde[l], Betas[l]), activation_type='relu')
         else:
             h_tilde[l] = activation(tf.multiply(Gammas[l], tf.add(z_tilde[l], Betas[l])), activation_type='sigmoid')
+
 
     return z_tilde, h_tilde[L]
 
@@ -83,20 +75,21 @@ def main():
     labeled_dataset = np.load("label_dataset_sample.npy")
     ulabeled_dataset = np.load("unlabel_dataset_sample.npy")
 
-    batch_size = 3
-    n_epochs = 10
+    batch_size = 5
+    n_epochs = 1000
 
     num_label_example, _ = labeled_dataset.shape
     num_iter = (num_label_example * n_epochs) / batch_size
 
-    ld = Dataset(labeled_dataset, batch_size)
+    ld = SemiDataset(labeled_dataset, ulabeled_dataset, batch_size)
 
+    test_data = Label_Dataset(labeled_dataset, batch_size)
     # tf Graph input
     X = tf.placeholder(tf.float32, shape=(None, 2195))
     y_ = tf.placeholder(tf.float32, shape=(None, 1))
     # define weight for corrupted encoder,  clean encoder
-    layer_units = [2195, 500, 200, 200, 1]
-    lambda_weight= [1000, 10, 0.1, 0.1, 0.1]
+    layer_units = [2195, 1000, 1000, 500, 200, 1]
+    lambda_weight= [1000, 10, 0.1, 0.1, 0.1, 0.1]
 
     # define W, V, scaling Gammas, Bias Betas
     W = {}
@@ -122,26 +115,43 @@ def main():
     B = {}
 
     z_tilde, h_tilde_L = encoder(X, W, L, Gammas, Betas, noise=0.5)
-    z, _ = encoder(X, W, L, Gammas, Betas, noise=0.0)
+
+    z, predict_y = encoder(X, W, L, Gammas, Betas, noise=0.0)
     z_hat_batch_norm =  decoder(h_tilde_L, L, V, z_tilde, A, B)
 
+    h_tilde_label_L = tf.slice(h_tilde_L, [0, 0], [batch_size, -1])
+    y_label_predict = tf.slice(predict_y, [0, 0], [batch_size, -1])
+
     # define cost function
-    Cost_c = tf.losses.sigmoid_cross_entropy(logits=h_tilde_L, multi_class_labels=y_)
+    # NaN problem here 0.0
+    Cost_c = tf.losses.sigmoid_cross_entropy(logits=h_tilde_label_L, multi_class_labels=y_)
+
+    correct_prediction = tf.equal(tf.cast(tf.greater(y_label_predict, 0.5), tf.float32), y_)
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+    # NaN problem maybe coused by batch size
     Cost_d = 0
     for l in xrange(L+1):
         Cost_d += lambda_weight[l] * tf.reduce_mean(tf.square(z[l] - z_hat_batch_norm[l]))
 
-    Cost = Cost_c + Cost_d
+    loss = Cost_c + Cost_d
 
-    optimazer = tf.train.AdamOptimizer(learning_rate=0.01).minimize(Cost)
+    optimazer = tf.train.AdamOptimizer(learning_rate=0.01).minimize(loss)
+
 
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
         sess.run(init)
         for i in xrange(num_iter):
             sequences_batch, labels_batch = ld.next_batch()
-            _, Cost_o =  sess.run([optimazer, Cost], feed_dict={X: sequences_batch, y_:labels_batch})
-            print(Cost_o)
+            _, loss0, train_accuracy =  sess.run([optimazer, loss, accuracy], feed_dict={X: sequences_batch, y_:labels_batch})
+            print(loss0, " ", train_accuracy)
+
+
+        for j in xrange(num_iter):
+            test_sequences_batch, test_labels_batch = test_data.next_batch()
+            test_accuracy =  sess.run([accuracy], feed_dict={X:test_sequences_batch, y_:test_labels_batch})
+            print(test_accuracy)
 
 if __name__=="__main__":
     main()
