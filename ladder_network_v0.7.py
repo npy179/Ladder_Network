@@ -70,6 +70,25 @@ def decoder(h_tilde_L, L, V, z_tildes, A, B):
     return z_hat_batch_norm
 
 
+def load_data(data_name, label=True):
+
+    if label:
+        dataset = np.load(data_name)
+        num_sample, _= dataset.shape
+        num_train = (num_sample//2000)*1000
+        num_valid = num_train / 2
+        num_test = num_sample - num_train -num_valid
+        train_dataset = dataset[:num_train, :]
+        valid_dataset = dataset[num_train:num_train+num_valid, :]
+        test_dataset = dataset[num_train+num_valid:, :]
+
+        return train_dataset, valid_dataset, test_dataset
+
+    else:
+        dataset = np.load(data_name)
+        return dataset
+
+
 def main():
 
     labeled_dataset = np.load("label_dataset_sample.npy")
