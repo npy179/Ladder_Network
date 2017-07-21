@@ -44,23 +44,24 @@ class Label_Dataset(object):
 
         if end > _num_rows:
             end = _num_rows
-        else:
-            data_batch = self.dataset[start:end, :-1]
-            label_batch = self.dataset[start:end, [-1]]
+
+        data_batch = self.dataset[start:end, :-1]
+        label_batch = self.dataset[start:end, [-1]]
 
         return data_batch, label_batch
 
 
 class Ulabel_Dataset(object):
+
     def __init__(self, dataset, batch_size):
         self.dataset = dataset
         self.batch_size = batch_size
         self._batch_index = 0
 
     def next_batch(self):
+
         _num_rows, _ = self.dataset.shape
         start = self._batch_index * self.batch_size
-
         end = (self._batch_index + 1) * self.batch_size
 
         self._batch_index += 1
